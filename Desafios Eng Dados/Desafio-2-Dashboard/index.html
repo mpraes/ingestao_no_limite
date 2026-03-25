@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Intelligence Dashboard</title>
+  <meta name="description" content="Dashboard interativo de análise de vendas com filtros dinâmicos e visualizações D3.js">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- D3.js v7 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- Papa Parse — CSV parsing no browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header class="header">
+  <div class="header-brand">
+    <div class="header-logo">📊</div>
+    <div>
+      <div class="header-title">Sales Intelligence</div>
+      <div class="header-subtitle">E-commerce · 2024</div>
+    </div>
+  </div>
+  <div class="header-meta" id="header-meta">Carregando dados…</div>
+</header>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main class="main">
+
+  <!-- Loading state -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span>Processando 10.000 registros…</span>
+  </div>
+
+  <!-- Dashboard content (hidden until CSV loaded) -->
+  <div id="dashboard" style="display:none">
+
+    <!-- ── Filtros ── -->
+    <div class="filter-bar">
+      <span class="filter-label">Filtros</span>
+
+      <span class="filter-label" style="margin-left:8px">Categoria</span>
+      <div class="chip-group" id="chip-categoria"></div>
+
+      <span class="filter-label" style="margin-left:8px">Vendedor</span>
+      <select class="filter-select" id="sel-vendedor">
+        <option value="">Todos</option>
+      </select>
+
+      <span class="filter-label" style="margin-left:8px">Estado</span>
+      <select class="filter-select" id="sel-estado">
+        <option value="">Todos</option>
+      </select>
+
+      <span class="filter-label" style="margin-left:8px">Período</span>
+      <select class="filter-select" id="sel-mes-de">
+        <option value="">Jan</option>
+      </select>
+      <span style="color:var(--text-muted);font-size:12px">→</span>
+      <select class="filter-select" id="sel-mes-ate">
+        <option value="">Dez</option>
+      </select>
+
+      <button class="btn-reset" id="btn-reset">✕ Limpar</button>
+    </div>
+
+    <!-- ── KPIs ── -->
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-label">Faturamento Total</div>
+        <div class="kpi-value" id="kpi-fat">—</div>
+        <div class="kpi-sub"><span class="kpi-badge success" id="kpi-fat-badge"></span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">🛒</div>
+        <div class="kpi-label">Total de Vendas</div>
+        <div class="kpi-value" id="kpi-vendas">—</div>
+        <div class="kpi-sub" id="kpi-vendas-sub"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">👤</div>
+        <div class="kpi-label">Clientes Únicos</div>
+        <div class="kpi-value" id="kpi-clientes">—</div>
+        <div class="kpi-sub" id="kpi-clientes-sub"></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-label">Ticket Médio</div>
+        <div class="kpi-value" id="kpi-ticket">—</div>
+        <div class="kpi-sub" id="kpi-ticket-sub"></div>
+      </div>
+    </div>
+
+    <!-- ── Charts Grid ── -->
+    <div class="charts-grid">
+
+      <!-- 1. Bar: Faturamento por Categoria (col-12) -->
+      <div class="card col-12" id="card-categoria">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Faturamento por Categoria</div>
+            <div class="card-subtitle">Clique para filtrar todos os gráficos</div>
+          </div>
+        </div>
+        <div class="card-body chart-container" id="chart-categoria"></div>
+      </div>
+
+      <!-- 2. Line: Tendência Mensal (col-8) -->
+      <div class="card col-8" id="card-trend">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Tendência de Faturamento Mensal</div>
+            <div class="card-subtitle">Jan – Dez 2024</div>
+          </div>
+        </div>
+        <div class="card-body chart-container" id="chart-trend"></div>
+      </div>
+
+      <!-- 3. Donut: Participação por Categoria (col-4) -->
+      <div class="card col-4" id="card-donut">
+        <div class="card-header">
+          <div>
+            <div class="card-title">% por Categoria</div>
+            <div class="card-subtitle">Participação no faturamento</div>
+          </div>
+        </div>
+        <div class="card-body chart-container" id="chart-donut"></div>
+        <div class="legend" id="legend-donut"></div>
+      </div>
+
+      <!-- 4. Horizontal Bar: Top Produtos (col-6) -->
+      <div class="card col-6" id="card-produtos">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Top Produtos — Faturamento</div>
+            <div class="card-subtitle">Ranking por receita total</div>
+          </div>
+        </div>
+        <div class="card-body chart-container" id="chart-produtos"></div>
+      </div>
+
+      <!-- 5. Stacked Bar: Vendedor × Categoria (col-6) -->
+      <div class="card col-6" id="card-vendedor">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Faturamento por Vendedor</div>
+            <div class="card-subtitle">Breakdown por categoria de produto</div>
+          </div>
+        </div>
+        <div class="card-body chart-container" id="chart-vendedor"></div>
+        <div class="legend" id="legend-vendedor"></div>
+      </div>
+
+      <!-- 6. Table: Top Clientes (col-12) -->
+      <div class="card col-12" id="card-clientes">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Top 20 Clientes por Faturamento</div>
+            <div class="card-subtitle">Clientes rankeados por valor total comprado</div>
+          </div>
+        </div>
+        <div class="card-body" id="chart-clientes"></div>
+      </div>
+
+    </div><!-- /charts-grid -->
+  </div><!-- /dashboard -->
+
+</main><!-- /main -->
+
+<!-- Tooltip global -->
+<div class="d3-tooltip" id="tooltip"></div>
+
+<script src="js/charts.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
