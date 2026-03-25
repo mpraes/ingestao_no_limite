@@ -1,0 +1,11 @@
+produto,categoria,quantidade_total,faturamento_total
+Notebook,Eletrônicos,2364,8290852.39
+Mesa,Móveis,2581,3092939.21
+Monitor,Eletrônicos,2613,2364641.86
+Cadeira,Móveis,2319,1629832.3
+Fone,Eletrônicos,2469,495633.09
+Mochila,Acessórios,2557,460376.91
+Teclado,Eletrônicos,2566,384771.59
+Livro Python,Livros,2470,296630.22
+Livro SQL,Livros,2474,247460.7
+Mouse,Eletrônicos,2581,205764.16
