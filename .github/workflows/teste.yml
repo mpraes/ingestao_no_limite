@@ -13,10 +13,6 @@ jobs:
       - name: Checkout da Main
         uses: actions/checkout@v4
 
-      - name: Instalar dependencias do Juiz (jq)
-        run: |
-          sudo apt-get install -y jq
-
       - name: Executar Avaliacao Oficial no Servidor
         run: |
           # Pega o arquivo JSON alterado ou adicionado no PR
