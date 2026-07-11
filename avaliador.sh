@@ -36,17 +36,20 @@ log_error() {
 # ==============================================================================
 gravar_ranking() {
     local tag="$1"
-    local tempo="$2"
-    local tamanho="$3"
+    # Garante a substituição de vírgula por ponto para evitar rejeição no Postgres
+    local tempo=$(echo "$2" | tr ',' '.')
+    local tamanho=$(echo "$3" | tr ',' '.')
     local status="$4"
 
-    log_info "Persistindo resultado no Postgres (Status: $status)..."
+    log_info "Persistindo resultado no Postgres (Status: $status | Tempo: ${tempo}s)..."
 
-    docker exec -e PGPASSWORD="$PG_PASS" "$PG_CONTAINER" \
+    if docker exec -e PGPASSWORD="$PG_PASS" "$PG_CONTAINER" \
       psql -U "$PG_USER" -d "$PG_DB" \
-      -c "INSERT INTO ranking_ingestao (github_user, tempo_segundos, tamanho_mb, status) VALUES ('$tag', $tempo, $tamanho, '$status');" > /dev/null 2>&1 \
-      && log_success "Dados inseridos com sucesso na tabela 'ranking_ingestao'." \
-      || log_error "Falha ao gravar registro no PostgreSQL."
+      -c "INSERT INTO ranking_ingestao (github_user, tempo_segundos, tamanho_mb, status) VALUES ('$tag', $tempo, $tamanho, '$status');"; then
+        log_success "Dados inseridos com sucesso na tabela 'ranking_ingestao'."
+    else
+        log_error "Falha ao gravar registro no PostgreSQL."
+    fi
 }
 
 # ==============================================================================
@@ -97,7 +100,7 @@ fi
 
 log_info "Validando estrutura do arquivo JSON '$JSON_FILE'..."
 if ! jq empty "$JSON_FILE" > /dev/null 2>&1; then
-    log_error "O arquivo $JSON_FILE contém um sintaxe JSON inválida!"
+    log_error "O arquivo $JSON_FILE contém sintaxe JSON inválida!"
     exit 1
 fi
 
@@ -115,7 +118,7 @@ echo "  📂 REPOSITÓRIO: $REPO_URL"
 echo -e "=================================================\n"
 
 # ==============================================================================
-# 3. PREPARAÇÃO DO AMBIENTE E CLONE DO REPOSITÓRIO
+# 3. PREPARAÇÃO DO AMBIENTE E CLONE DO REPOSITÓRIO DO PARTICIPANTE
 # ==============================================================================
 DIR_PARTICIPANTE="$DIR_TESTES/$PARTICIPANTE_TAG"
 
@@ -123,19 +126,19 @@ log_info "Limpando diretórios temporários antigos em $DIR_PARTICIPANTE..."
 rm -rf "$DIR_PARTICIPANTE"
 mkdir -p "$DIR_PARTICIPANTE"
 
-log_info "Clonando repositório do participante..."
+log_info "Clonando o repositório do participante em /tmp..."
 if ! git clone --depth 1 "$REPO_URL" "$DIR_PARTICIPANTE" > /dev/null 2>&1; then
     log_error "Falha crítica ao clonar o repositório do participante!"
-    gravar_ranking "$PARTICIPANTE_TAG" 0 0 "ERRO_CLONE_GIT"
+    gravar_ranking "$PARTICIPANTE_TAG" "0.000" "0.00" "ERRO_CLONE_GIT"
     exit 1
 fi
-log_success "Repositório clonado com sucesso."
+log_success "Repositório clonado com sucesso em $DIR_PARTICIPANTE."
 
 cd "$DIR_PARTICIPANTE"
 
 if [ ! -f "Dockerfile" ]; then
     log_error "Dockerfile não foi encontrado na raiz do repositório do participante!"
-    gravar_ranking "$PARTICIPANTE_TAG" 0 0 "DOCKERFILE_AUSENTE"
+    gravar_ranking "$PARTICIPANTE_TAG" "0.000" "0.00" "DOCKERFILE_AUSENTE"
     exit 1
 fi
 
@@ -147,15 +150,14 @@ NOME_IMAGEM="submissao_$PARTICIPANTE_TAG"
 log_info "Iniciando o build da imagem Docker ($NOME_IMAGEM)..."
 if ! docker build -t "$NOME_IMAGEM" . ; then
     log_error "Falha na compilação do Dockerfile!"
-    gravar_ranking "$PARTICIPANTE_TAG" 0 0 "ERRO_BUILD_DOCKER"
+    gravar_ranking "$PARTICIPANTE_TAG" "0.000" "0.00" "ERRO_BUILD_DOCKER"
     exit 1
 fi
 log_success "Imagem Docker construída com sucesso."
 
 # ==============================================================================
-# 5. EXECUÇÃO CONTROLADA COM LIMITES DE RECURSOS
+# 5. EXECUÇÃO CONTROLADA COM LIMITES DE RECURSOS (2 vCPUs, 2 GB RAM)
 # ==============================================================================
-# Limpa execuções antigas
 docker rm -f "$CONTAINER_APP_NAME" > /dev/null 2>&1 || true
 
 log_info "Disparando container com limites de hardware (2 vCPUs, 2 GB RAM)..."
@@ -164,27 +166,28 @@ START_TIME=$(date +%s.%N)
 if docker run --name "$CONTAINER_APP_NAME" \
     --cpus="2.0" \
     --memory="2g" \
+    -e POLARS_SKIP_CPU_CHECK=1 \
     "$NOME_IMAGEM"; then
     
     END_TIME=$(date +%s.%N)
-    DURATION_SEC=$(awk "BEGIN {print $END_TIME - $START_TIME}")
+    DURATION_SEC=$(awk "BEGIN {print $END_TIME - $START_TIME}" | tr ',' '.')
     log_success "Execução concluída em ${DURATION_SEC}s!"
     
-    # Exemplo mockado de tamanho gerado (pode ser substituído por uma checagem real via DuckDB/MinIO/S3)
-    STORAGE_MB=150.0
+    STORAGE_MB=150.00
     STATUS_FINAL="CLASSIFICADO"
 else
     log_error "O container do participante falhou ou excedeu o limite de memória (OOM)!"
-    DURATION_SEC=0
-    STORAGE_MB=0
+    DURATION_SEC="0.000"
+    STORAGE_MB="0.00"
     STATUS_FINAL="ERRO_EXECUCAO"
 fi
 
 # ==============================================================================
 # 6. LIMPEZA E REGISTRO FINAL
 # ==============================================================================
-log_info "Removendo container de teste e artefatos gerados..."
+log_info "Removendo container de teste e imagens temporárias..."
 docker rm -f "$CONTAINER_APP_NAME" > /dev/null 2>&1 || true
+docker rmi -f "$NOME_IMAGEM" > /dev/null 2>&1 || true
 
 gravar_ranking "$PARTICIPANTE_TAG" "$DURATION_SEC" "$STORAGE_MB" "$STATUS_FINAL"
 
