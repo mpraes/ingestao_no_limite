@@ -33,15 +33,24 @@ O ranking é ordenado por **Menor Tempo de Execução (Wall Time)** e desempata 
 
 > *"Engenharia de dados de verdade não é sobre contratar o maior cluster da nuvem, é sobre escrever código otimizado."*# ingestao_no_limite
 
-### 🚀 Como Submeter sua Solução
+## 🚀 Como Submeter sua Solução
 
-1. **Faça um Fork** deste repositório para a sua conta do GitHub.
-2. Clone o seu fork na sua máquina local e desenvolva sua solução em qualquer linguagem (Python, Rust, Go, C++, etc.).
-3. Garanta que o **`Dockerfile` na raiz do seu repositório** saiba compilar/executar seu código e salvar a saída Delta Lake no MinIO (`s3://marketing-leads/silver_empresas`).
-4. Crie um arquivo JSON dentro da pasta `submissoes/` nomeado com seu usuário do GitHub (ex: `submissoes/seu_usuario.json`) com o seguinte conteúdo:
+Para participar do desafio **Ingestão no Limite**, siga os passos abaixo:
+
+### Passo 1: Desenvolva sua solução
+1. Crie um **novo repositório público** na sua conta do GitHub para o seu código.
+2. Desenvolva sua solução na linguagem que desejar (Python, Rust, Go, C++, etc.).
+3. **Requisito Obrigatório:** Na **raiz** do seu repositório deve existir um `Dockerfile` que prepare o ambiente e execute a ingestão automaticamente ao iniciar o container.
+4. Garanta que seu container grave a saída Delta Lake no MinIO configurado (`s3://marketing-leads/silver_empresas`).
+
+### Passo 2: Envie sua submissão para a Rinha
+1. Faça um **Fork** deste repositório (`mpraes/ingestao_no_limite`).
+2. No seu fork, crie um arquivo dentro da pasta `submissoes/` com o seu nome de usuário do GitHub:
+   `submissoes/seu_usuario.json`
+3. Preencha o JSON exatamente com a estrutura abaixo:
 
 ```json
 {
   "participante": "seu_usuario",
-  "repositorio": "[https://github.com/seu_usuario/ingestao_no_limite](https://github.com/seu_usuario/ingestao_no_limite)"
+  "repositorio": "[https://github.com/seu_usuario/seu-repo-da-solucao](https://github.com/seu_usuario/seu-repo-da-solucao)"
 }
