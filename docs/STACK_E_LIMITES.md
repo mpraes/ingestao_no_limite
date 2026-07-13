@@ -1,14 +1,14 @@
 # 💻 Stack do Servidor e Acesso na Avaliação
 
-O seu código rodará em uma máquina real com recursos contados. Na avaliação por Pull Request, o servidor **injeta variáveis de ambiente** no seu container — você **não precisa** (e não deve) hardcodar senhas ou IPs no código.
+O seu código rodará em uma máquina real com recursos contados. Na avaliação oficial (após merge na `main`), o servidor **injeta variáveis de ambiente** no seu container — você **não precisa** (e não deve) hardcodar senhas ou IPs no código.
 
 Esta competição simula um cenário real: a infraestrutura é fornecida, mas **a arquitetura do pipeline é decisão sua**.
 
 ---
 
-## 🔄 O que acontece quando você abre o PR
+## 🔄 O que acontece após o merge na `main`
 
-1. Você abre um PR no fork com `submissions/seu_usuario.json`.
+1. Você abre um PR no fork com `submissions/seu_usuario.json` e **faz merge** na `main` do repo oficial.
 2. O GitHub Action dispara `evaluator/evaluator.sh` no servidor (**Hardware Celeron**).
 3. O avaliador clona o **seu repositório** (campo `repositorio` do JSON).
 4. Faz `docker build` da **sua imagem** e executa com limites de 2 CPU / 2 GB RAM.
@@ -16,7 +16,7 @@ Esta competição simula um cenário real: a infraestrutura é fornecida, mas **
 6. Os dados brutos ficam montados em **`/data/`** (somente leitura).
 7. Ao terminar, o **juiz** valida a tabela `public.{participante}_empresas` e grava o ranking.
 
-Você **não acessa o servidor por SSH**. Tudo ocorre automaticamente quando o PR é aberto.
+Você **não acessa o servidor por SSH**. A avaliação roda automaticamente após o merge. O organizador pode **reavaliar** sem novo PR em **Actions → Avaliador de Submissoes → Run workflow**.
 
 ---
 
@@ -24,7 +24,7 @@ Você **não acessa o servidor por SSH**. Tudo ocorre automaticamente quando o P
 
 O avaliador define estas variáveis no `docker run`. **Seu código deve lê-las** — não hardcode hosts ou credenciais.
 
-| Variável | Descrição | Valor na avaliação (PR) |
+| Variável | Descrição | Valor na avaliação (servidor) |
 | :--- | :--- | :--- |
 | `PARTICIPANTE` | Seu identificador do JSON | ex.: `renan_python` |
 | `PG_TABLE` | Nome da tabela final | ex.: `renan_python_empresas` |
@@ -128,9 +128,9 @@ Seu pipeline deve ler os zips **diretamente** de `/data/`, sem depender de downl
 
 ---
 
-## 🧪 Desenvolvimento local vs avaliação no PR
+## 🧪 Desenvolvimento local vs avaliação no servidor
 
-| Aspecto | Local (seu PC) | Avaliação (PR no servidor) |
+| Aspecto | Local (seu PC) | Avaliação (após merge na `main`) |
 | :--- | :--- | :--- |
 | Quem roda o Docker | Você | `evaluator/evaluator.sh` |
 | `PG_HOST` | `localhost` | `postgres_db` |
@@ -293,8 +293,8 @@ Para recalcular: `source evaluator/scripts/lib/estimate-timeout.sh && print_time
 ## ⏳ Fila e avaliação
 
 * **1 avaliação por vez** no servidor
-* PRs do mesmo participante: apenas o **mais recente** é avaliado
-* Resultado gravado em `ranking_ingestao` e publicado no PR
+* Submissões entram na fila após merge (`push` na `main`) ou disparo manual (`workflow_dispatch`)
+* Resultado gravado em `ranking_ingestao` e visível no site de ranking
 
 ---
 

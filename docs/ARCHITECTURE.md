@@ -125,6 +125,7 @@ graph LR
 Responsabilidades:
 
 - Validar toolchain (`jq`, `git`, `docker`, `python3`)
+- Preparar venv Python do juiz (`evaluator/judge/.venv` — `psycopg2`, `boto3`)
 - Verificar se `postgres_db` está rodando
 - Ler e validar JSON de submissão
 - Chamar preflight do juiz (Gate G1)
@@ -147,13 +148,14 @@ Três comandos principais:
 | `registrar` | Falha antecipada | Grava status de erro no ranking |
 | `avaliar` | Após `docker run` | Gates G2–G4, métricas, INSERT ranking |
 
-Dependências Python: `psycopg2-binary`, `boto3`.
+Dependências Python: `psycopg2-binary`, `boto3` (instaladas automaticamente em `evaluator/judge/.venv` pelo `evaluator/evaluator.sh`).
 
 ### 3.3 GitHub Action — `teste.yml`
 
 | Aspecto | Comportamento |
 | :--- | :--- |
-| Trigger | PR em `main` alterando `submissions/*.json` |
+| Trigger | **Merge** na `main` alterando `submissions/*.json` (`push`) |
+| Reavaliação manual | `workflow_dispatch` com caminho do JSON (ex.: `submissions/dataforma-hub.json`) |
 | Runner | `self-hosted` (servidor local) |
 | Concurrency | `avaliador-ingestao` — fila única, sem cancelar em andamento |
 | Cooldown | 15 min (`COOLDOWN_SEC`) após cada avaliação |
@@ -214,13 +216,14 @@ sequenceDiagram
     participant MN as S3 (MinIO lab)
 
     P->>GH: Abre PR com submissions/user.json
-    GH->>WF: Dispara Action (self-hosted)
+    P->>GH: Merge na main
+    GH->>WF: Dispara Action (push, self-hosted)
     Note over WF: concurrency: fila única
 
     WF->>WF: Checkout + detecta JSON alterado
     WF->>AV: ./evaluator/evaluator.sh submissions/user.json
 
-    AV->>AV: Diagnóstico (docker, postgres, toolchain)
+    AV->>AV: Diagnóstico (docker, postgres, venv juiz)
     AV->>JZ: preflight --participante user
     JZ->>PG: Testa conexão db_empresas
     JZ-->>AV: PREFLIGHT_OK
@@ -257,7 +260,7 @@ Gates são **binários**: falhou um = não classificado.
 
 ```mermaid
 flowchart TD
-    Start([PR aberto]) --> G0
+    Start([Merge na main]) --> G0
 
     subgraph G0["Gate G0 — Estrutura"]
         G0A{JSON válido?}
@@ -394,12 +397,12 @@ O workflow garante que submissões **nunca corram em paralelo** e que haja um in
 
 ```mermaid
 stateDiagram-v2
-    [*] --> AguardandoFila: PR aberto
+    [*] --> AguardandoFila: JSON mergeado na main
 
     AguardandoFila --> EmAvaliacao: Slot livre<br/>(concurrency group)
     EmAvaliacao --> Cooldown: evaluator/evaluator.sh termina<br/>(sucesso ou falha)
     Cooldown --> AguardandoFila: sleep COOLDOWN_SEC<br/>(padrão 15 min)
-    AguardandoFila --> EmAvaliacao: Próximo PR na fila
+    AguardandoFila --> EmAvaliacao: Próxima submissão na fila
 
     note right of EmAvaliacao
         Apenas 1 job ativo
@@ -464,7 +467,7 @@ O timeout do pipeline é calculado em `evaluator/scripts/lib/estimate-timeout.sh
 ```
 ingestao_no_limite/
 ├── .github/workflows/
-│   └── teste.yml              # CI: dispara avaliação no PR
+│   └── teste.yml              # CI: dispara avaliação após merge (push + dispatch manual)
 ├── docs/
 │   ├── ARCHITECTURE.md        # Este documento
 │   ├── REGRAS_E_CONTRATO.md
@@ -521,7 +524,7 @@ flowchart TB
     Code -->|"DATA_VOLUME"| Data2
 ```
 
-Competidores **não** têm acesso SSH ao servidor. Tudo ocorre automaticamente quando o PR é aberto.
+Competidores **não** têm acesso SSH ao servidor. A avaliação roda automaticamente após o merge na `main` (ou via disparo manual do organizador).
 
 ---
 
@@ -575,11 +578,11 @@ Dados gravados em `db_ingestao.public.ranking_ingestao`. Views para o site: `v_l
 
 | Pergunta | Resposta |
 | :--- | :--- |
-| O que dispara a avaliação? | PR em `main` alterando `submissions/*.json` |
+| O que dispara a avaliação? | Merge na `main` (`push` em `submissions/*.json`) ou `workflow_dispatch` manual |
 | Quem orquestra? | `evaluator/evaluator.sh` no runner self-hosted |
 | Quem valida regras? | `evaluator/judge/validar.py` + SQL privado |
 | Onde o participante grava dados? | `db_empresas.public.{participante}_empresas` |
 | Quantas avaliações em paralelo? | **1** (fila única) |
 | Intervalo entre submissões? | **15 min** de cooldown |
 | Limites do container? | 2 CPU, 2 GB RAM, ~3h20m timeout (~48M linhas) |
-| O smoke test roda em cada PR? | **Não** — só preflight + pipeline real |
+| O smoke test roda em cada submissão? | **Não** — só preflight + pipeline real |

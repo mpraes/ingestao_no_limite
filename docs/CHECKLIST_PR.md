@@ -1,6 +1,6 @@
 # 📑 Checklist para Envio de Pull Request
 
-Antes de abrir o Pull Request para avaliação, verifique todos os pontos abaixo:
+Antes de abrir o Pull Request e fazer **merge** na `main` (o que dispara a avaliação), verifique todos os pontos abaixo:
 
 ## Estrutura e execução
 
@@ -45,3 +45,9 @@ Antes de abrir o Pull Request para avaliação, verifique todos os pontos abaixo
 
 - [ ] Testou localmente com os mesmos limites de RAM/CPU quando possível.
 - [ ] Revisou os [Gates de validação](./GATES_E_RANKING.md) — todas as queries DQ devem retornar 0.
+
+## Após o merge
+
+- [ ] A avaliação dispara automaticamente quando o JSON entra na `main` (workflow `push`).
+- [ ] Acompanhe em **Actions → Avaliador de Submissoes** no repo oficial.
+- [ ] Para reavaliar sem novo PR (ex.: após corrigir infra), o organizador usa **Run workflow** com `submissions/seu_usuario.json`.

@@ -111,10 +111,10 @@ check_sql_layout() {
 
 check_workflow_yaml() {
     local wf="$REPO_ROOT/.github/workflows/teste.yml"
-    grep -q "pull_request:" "$wf" \
-        && grep -q "submissions/\*\.json" "$wf" \
+    grep -q "submissions/\*\.json" "$wf" \
         && grep -q "evaluator/evaluator.sh" "$wf" \
-        && grep -q "self-hosted" "$wf"
+        && grep -q "self-hosted" "$wf" \
+        && { grep -q "push:" "$wf" || grep -q "workflow_dispatch:" "$wf"; }
 }
 
 check_submission_json() {

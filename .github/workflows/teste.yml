@@ -1,10 +1,18 @@
 name: Avaliador de Submissoes
 
 on:
-  pull_request:
+  # Avalia após merge na main (submissão oficial no repositório)
+  push:
+    branches: [ main ]
     paths:
       - 'submissions/*.json'
-    branches: [ main ]
+  # Reavaliação manual sem novo PR (ex.: após corrigir o servidor)
+  workflow_dispatch:
+    inputs:
+      submission:
+        description: 'Arquivo em submissions/ (ex: submissions/dataforma-hub.json)'
+        required: true
+        type: string
 
 # Fila única: uma submissão por vez. cancel-in-progress=false enfileira em vez de cancelar.
 # O passo final de cooldown mantém o slot ocupado, garantindo o intervalo entre avaliações.
@@ -22,13 +30,14 @@ jobs:
       # Intervalo de cortesia entre submissões (segundos). Padrão: 15 min.
       COOLDOWN_SEC: ${{ vars.COOLDOWN_SEC || '900' }}
     steps:
-      - name: Checkout do PR
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Identificar arquivos alterados
         id: changed-files
+        if: github.event_name == 'push'
         uses: tj-actions/changed-files@v45
         with:
           files: submissions/*.json
@@ -37,11 +46,20 @@ jobs:
         run: |
           set -eo pipefail
 
-          CHANGED_FILE="${{ steps.changed-files.outputs.all_changed_files }}"
-          CHANGED_FILE=$(echo "$CHANGED_FILE" | awk '{print $1}')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CHANGED_FILE="${{ github.event.inputs.submission }}"
+          else
+            CHANGED_FILE="${{ steps.changed-files.outputs.all_changed_files }}"
+            CHANGED_FILE=$(echo "$CHANGED_FILE" | awk '{print $1}')
+          fi
 
           if [ -z "$CHANGED_FILE" ]; then
-            echo "❌ Nenhum arquivo JSON de submissao encontrado nas alteracoes do PR."
+            echo "❌ Nenhum arquivo JSON de submissao encontrado."
+            exit 1
+          fi
+
+          if [ ! -f "$CHANGED_FILE" ]; then
+            echo "❌ Arquivo não encontrado: $CHANGED_FILE"
             exit 1
           fi
 
@@ -56,7 +74,7 @@ jobs:
 
           echo "================================================="
           echo "--> Arquivo de submissao detectado: $CHANGED_FILE"
-          echo "--> PR: ${PR_NUMERO:-n/a} | Run: ${GITHUB_RUN_ID:-n/a}"
+          echo "--> Evento: ${{ github.event_name }} | Run: ${GITHUB_RUN_ID:-n/a}"
           echo "================================================="
 
           chmod +x evaluator/evaluator.sh

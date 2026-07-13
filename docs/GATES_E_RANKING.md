@@ -9,14 +9,14 @@ Scripts SQL executáveis estão em [`evaluator/judge/sql/`](../evaluator/judge/s
 ## Visão geral do fluxo
 
 ```
-PR aberto
+Merge na main (submissions/*.json)
   → evaluator/evaluator.sh (orquestrador bash)
-  → preflight via evaluator/judge/validar.py (Gate G1)
+  → venv do juiz (psycopg2, boto3) + preflight via evaluator/judge/validar.py (Gate G1)
   → git clone + docker build (Gate G0)
   → docker run com timeout ~3h20m (Gate G2 — bash)
   → evaluator/judge/validar.py avaliar (Gates G2–G4 + métricas)
   → Gravação em ranking_ingestao + recalcular_posicoes_ranking()
-  → Comentário no PR + site de ranking
+  → Site de ranking + logs do workflow
 ```
 
 ### Divisão de responsabilidades
@@ -170,7 +170,7 @@ DDL, função de ranking e views: `evaluator/judge/sql/schema/ranking_ingestao.s
 | :--- | :--- |
 | `v_leaderboard` | Ranking oficial (página principal) |
 | `v_melhor_por_participante` | Melhor tentativa classificada de cada user |
-| `v_ultima_avaliacao` | Última tentativa — feedback no PR |
+| `v_ultima_avaliacao` | Última tentativa — feedback no ranking |
 | `v_historico_tentativas` | Todas as execuções — gráficos e debug |
 
 Consultas prontas para rodar no servidor: `evaluator/judge/sql/site/consultas_ranking.sql`
@@ -183,10 +183,10 @@ Consultas prontas para rodar no servidor: `evaluator/judge/sql/site/consultas_ra
 | :--- | :--- |
 | Fila única | 1 container de avaliação por vez (nunca em paralelo — `concurrency: avaliador-ingestao`) |
 | Intervalo entre avaliações | Cooldown de 15 min após cada run (`COOLDOWN_SEC`) antes de liberar a fila |
-| PR duplicado | Cancela avaliação anterior do mesmo `participante` |
+| Reavaliação | Novo merge do JSON ou `workflow_dispatch` manual — execuções enfileiradas, não canceladas |
 | Timeout global | ~3h20m no `docker run` (~48M linhas a processar) |
 | Build global | 15 minutos no `docker build` (1 CPU / 1 GB — não compete com o pipeline) |
-| Comentário no PR | Status, tempo, storage, gates e posição |
+| Feedback | Logs do workflow + site de ranking (`v_ultima_avaliacao`) |
 | Melhor resultado | Cada execução gera um registro; o site usa a melhor classificada |
 
 ---
