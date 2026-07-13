@@ -27,8 +27,11 @@ jobs:
       PR_NUMERO: ${{ github.event.pull_request.number }}
       GITHUB_RUN_ID: ${{ github.run_id }}
       GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+      JUIZ_CONFIG: ${{ vars.JUIZ_CONFIG || '/opt/ingestao-juiz/config.env' }}
+      JUIZ_SQL_DIR: ${{ vars.JUIZ_SQL_DIR || '/opt/ingestao-juiz/sql' }}
       # Intervalo de cortesia entre submissões (segundos). Padrão: 15 min.
-      COOLDOWN_SEC: ${{ vars.COOLDOWN_SEC || '900' }}
+      COOLDOWN_SEC: ${{ vars.COOLDOWN_SEC || '180' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
