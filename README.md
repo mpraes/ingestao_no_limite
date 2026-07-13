@@ -48,7 +48,7 @@ Onde `{participante}` é exatamente o valor do campo `participante` no seu JSON 
 ## 🏆 Como Funciona?
 
 1. **Faça o Fork** deste repositório.
-2. **Desenvolva seu código** de ingestão e tratamento no seu repositório público, com `Dockerfile` na raiz.
+2. **Desenvolva seu código** de ingestão em um **repositório público seu** (`Dockerfile` na raiz + `src/`). No fork oficial, envie apenas `submissoes/seu_usuario.json`.
 3. **Abra um Pull Request** contra a branch `main` com seu arquivo em `submissoes/seu_usuario.json`.
 4. O servidor local (**Hardware Celeron**) enfileira seu PR, executa **preflight**, roda o pipeline no Docker isolado e coleta métricas.
 5. Se passar em **todos os gates**, seu tempo, storage e pico de RAM entram no **Ranking Oficial**.
@@ -84,19 +84,42 @@ Detalhes completos em [Gates, Ranking e Juiz Automático](./docs/GATES_E_RANKING
 
 ## 🚀 Como Submeter sua Solução
 
+> **Dois repositórios, papéis diferentes**
+>
+> | Repositório | O que vai lá |
+> | :--- | :--- |
+> | **Seu repo público de solução** | `Dockerfile`, `src/`, `participante.json`, `requirements.txt` — só o pipeline |
+> | **Fork deste repo oficial** | Apenas `submissoes/seu_usuario.json` apontando para o seu repo |
+>
+> **Não** abra PR com o código da ingestão dentro do repo oficial (`docs/`, `juiz/`, `avaliador.sh`, etc.). O avaliador **clona o URL** do campo `repositorio` do JSON — ele precisa ser o **seu** repositório, enxuto e com o `Dockerfile` na raiz.
+
 ### Passo 1: Desenvolva sua solução
 
-1. Crie um **novo repositório público** na sua conta do GitHub para o seu código.
-2. Desenvolva na linguagem que desejar (Python, Rust, Go, C++, etc.).
-3. **Requisito obrigatório:** `Dockerfile` na **raiz** do repositório que execute a ingestão automaticamente ao iniciar o container.
-4. Grave a tabela final em `db_empresas.public.{participante}_empresas` conforme o [contrato de dados](./docs/REGRAS_E_CONTRATO.md).
-5. Object storage S3 é opcional; se usar, limite-se ao prefixo `s3://marketing-leads/{participante}/`. Projete o código contra a **API S3 genérica** — o MinIO na avaliação é apenas alvo de laboratório (ver [licença e alternativas](./docs/STACK_E_LIMITES.md#-object-storage-s3-compatível-opcional)).
+1. Crie um **novo repositório público** na sua conta do GitHub (ex.: `seu_usuario/ingestao-empresas`).
+2. Use este repo oficial só como **referência** (documentação em `/docs` e starter em `Dockerfile` + `src/`). Copie para o **seu** repo apenas o necessário para rodar o pipeline.
+3. Estrutura mínima recomendada no **seu** repositório:
 
-### Passo 2: Envie sua submissão para a Rinha
+```
+seu-repo-da-solucao/
+├── Dockerfile              # obrigatório — na raiz; dispara a ingestão ao iniciar o container
+├── requirements.txt        # dependências do build (se usar Python, etc.)
+├── participante.json       # seu identificador + URL deste mesmo repo (copie de participante.json.example)
+└── src/
+    └── main.py             # entrypoint do pipeline (ou outro layout, ajustando o Dockerfile)
+```
+
+4. Renomeie `participante.json.example` → `participante.json` e preencha com seu usuário e a URL do **seu** repo.
+5. Desenvolva na linguagem que desejar (Python, Rust, Go, C++, etc.) — o starter usa Python apenas como ponto de partida.
+6. Grave a tabela final em `db_empresas.public.{participante}_empresas` conforme o [contrato de dados](./docs/REGRAS_E_CONTRATO.md).
+7. Object storage S3 é opcional; se usar, limite-se ao prefixo `s3://marketing-leads/{participante}/`. Projete o código contra a **API S3 genérica** — o MinIO na avaliação é apenas alvo de laboratório (ver [licença e alternativas](./docs/STACK_E_LIMITES.md#-object-storage-s3-compatível-opcional)).
+
+O `participante.json` na raiz do **seu** repo é para organização e deve bater com o JSON que você enviará no fork (mesmos `participante` e `repositorio`). O avaliador **não** lê esse arquivo do seu repo — ele usa apenas o JSON em `submissoes/` no fork.
+
+### Passo 2: Envie sua submissão para o repo oficial da competição
 
 1. Faça um **Fork** deste repositório (`mpraes/ingestao_no_limite`).
-2. No seu fork, crie `submissoes/seu_usuario.json`.
-3. Preencha o JSON exatamente com a estrutura abaixo:
+2. No fork, crie **somente** `submissoes/seu_usuario.json` (não mova `Dockerfile` nem `src/` para cá).
+3. Use a **mesma** estrutura do `participante.json` do seu repo de solução:
 
 ```json
 {
@@ -104,6 +127,8 @@ Detalhes completos em [Gates, Ranking e Juiz Automático](./docs/GATES_E_RANKING
   "repositorio": "https://github.com/seu_usuario/seu-repo-da-solucao"
 }
 ```
+
+4. Abra um Pull Request contra a `main` do repo oficial. O workflow clona o `repositorio` acima e roda o `Dockerfile` **de lá**.
 
 ---
 
