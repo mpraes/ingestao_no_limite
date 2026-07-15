@@ -23,6 +23,9 @@ concurrency:
 jobs:
   avaliar:
     runs-on: self-hosted
+    # Safety net above pipeline hard cap (60m) + build (15m) + judge/email/cooldown.
+    # Real stop is evaluator.sh `timeout --kill-after` on docker run (PIPELINE_TIMEOUT_SEC=3600).
+    timeout-minutes: 90
     env:
       PR_NUMERO: ${{ github.event.pull_request.number }}
       GITHUB_RUN_ID: ${{ github.run_id }}

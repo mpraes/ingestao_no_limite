@@ -189,7 +189,8 @@ if docker build --help 2>&1 | grep -q -- '--cpus'; then
     log_info "Build limitado a ${BUILD_CPU_LIMIT} CPU / ${BUILD_MEM_LIMIT}"
 fi
 set +e
-timeout "$BUILD_TIMEOUT_SEC" docker build "${BUILD_LIMIT_ARGS[@]}" -t "$NOME_IMAGEM" "$DIR_PARTICIPANTE"
+# --kill-after: docker CLI often ignores SIGTERM; escalate to SIGKILL so build cannot hang past the budget
+timeout --kill-after=30s "$BUILD_TIMEOUT_SEC" docker build "${BUILD_LIMIT_ARGS[@]}" -t "$NOME_IMAGEM" "$DIR_PARTICIPANTE"
 BUILD_EXIT=$?
 set -e
 if [[ $BUILD_EXIT -eq 124 ]]; then
@@ -248,11 +249,21 @@ track_peak_ram "$CONTAINER_APP_NAME" "$PEAK_RAM_FILE" &
 TRACKER_PID=$!
 
 set +e
-timeout "$PIPELINE_TIMEOUT_SEC" docker run "${DOCKER_ARGS[@]}" "$NOME_IMAGEM"
+# Hard cap: SIGTERM at budget, then SIGKILL if docker CLI/container ignores it.
+# Without --kill-after, a timed-out `docker run` can hang forever (SIGTERM ignored).
+timeout --kill-after=30s "$PIPELINE_TIMEOUT_SEC" docker run "${DOCKER_ARGS[@]}" "$NOME_IMAGEM"
 EXIT_CODE=$?
+# If the CLI was SIGKILL'd, the container may still be running — force-stop it.
+docker kill "$CONTAINER_APP_NAME" &>/dev/null || true
 set -e
 
 [[ $EXIT_CODE -eq 124 ]] && TIMED_OUT=true
+# SIGKILL of the timeout/docker tree can surface as 137/143; treat overrun as timeout
+if [[ "$TIMED_OUT" != true ]]; then
+    overrun=$(awk -v start="$START_TIME" -v now="$(date +%s.%N)" -v budget="$PIPELINE_TIMEOUT_SEC" \
+        'BEGIN { print ((now - start) >= budget) ? 1 : 0 }')
+    [[ "$overrun" == 1 ]] && TIMED_OUT=true && EXIT_CODE=124
+fi
 
 sleep 1
 kill "$TRACKER_PID" 2>/dev/null || true
@@ -263,7 +274,7 @@ DURATION_SEC=$(awk "BEGIN {printf \"%.3f\", $END_TIME - $START_TIME}")
 PEAK_RAM_MB=$(tr ',' '.' < "$PEAK_RAM_FILE")
 rm -f "$PEAK_RAM_FILE"
 
-log_info "Execução finalizada — exit=$EXIT_CODE tempo=${DURATION_SEC}s pico_ram=${PEAK_RAM_MB}MB"
+log_info "Execução finalizada — exit=$EXIT_CODE tempo=${DURATION_SEC}s pico_ram=${PEAK_RAM_MB}MB timed_out=$TIMED_OUT"
 
 # ------------------------------------------------------------------------------
 # Limpeza Docker
