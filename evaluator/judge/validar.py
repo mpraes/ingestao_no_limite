@@ -4,6 +4,8 @@ Juiz automático — gates, métricas e gravação no ranking.
 
 Uso:
   python3 evaluator/judge/validar.py preflight --participante renan_python
+  python3 evaluator/judge/validar.py cleanup --participante renan_python
+  python3 evaluator/judge/validar.py cleanup-all
   python3 evaluator/judge/validar.py registrar --participante renan_python --status ERRO_CLONE_GIT
   python3 evaluator/judge/validar.py avaliar --participante renan_python --repositorio URL \\
       --tempo 120.5 --exit-code 0 --peak-ram-mb 512 --timed-out false
@@ -177,6 +179,46 @@ def scalar_query(conn, sql: str) -> int | bool | None:
         return row[0] if row else None
 
 
+def drop_participante_table(cfg: Config, participante: str) -> None:
+    """Remove public.{participante}_empresas if it exists (idempotent)."""
+    validate_participante(participante)
+    with connect(cfg.pg_db_empresas, cfg) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"DROP TABLE IF EXISTS {table_fqn(participante)} CASCADE")
+        conn.commit()
+
+
+def list_empresas_tables(cfg: Config) -> list[str]:
+    """Return public.*_empresas relation names in db_empresas."""
+    with connect(cfg.pg_db_empresas, cfg) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.relname
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public'
+                  AND c.relkind = 'r'
+                  AND c.relname LIKE '%\\_empresas' ESCAPE '\\'
+                ORDER BY 1
+                """
+            )
+            return [row[0] for row in cur.fetchall()]
+
+
+def drop_all_empresas_tables(cfg: Config) -> list[str]:
+    """DROP every public.*_empresas table. Returns dropped relation names."""
+    tables = list_empresas_tables(cfg)
+    if not tables:
+        return []
+    with connect(cfg.pg_db_empresas, cfg) as conn:
+        with conn.cursor() as cur:
+            for name in tables:
+                cur.execute(f"DROP TABLE IF EXISTS public.{quote_ident(name)} CASCADE")
+        conn.commit()
+    return tables
+
+
 def run_preflight(cfg: Config, participante: str) -> tuple[bool, str]:
     validate_participante(participante)
     try:
@@ -316,6 +358,34 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_cleanup(args: argparse.Namespace) -> int:
+    cfg = load_config()
+    participante = validate_participante(args.participante)
+    try:
+        drop_participante_table(cfg, participante)
+    except psycopg2.Error as exc:
+        print(f"ERRO_CLEANUP_PG: {exc}", file=sys.stderr)
+        return 1
+    print(f"CLEANUP_OK: dropped {table_fqn(participante)}")
+    return 0
+
+
+def cmd_cleanup_all(_args: argparse.Namespace) -> int:
+    cfg = load_config()
+    try:
+        dropped = drop_all_empresas_tables(cfg)
+    except psycopg2.Error as exc:
+        print(f"ERRO_CLEANUP_PG: {exc}", file=sys.stderr)
+        return 1
+    if not dropped:
+        print("CLEANUP_ALL_OK: nenhuma tabela *_empresas")
+        return 0
+    for name in dropped:
+        print(f"CLEANUP_ALL_OK: dropped public.{quote_ident(name)}")
+    print(f"CLEANUP_ALL_OK: {len(dropped)} tabela(s)")
+    return 0
+
+
 def cmd_registrar(args: argparse.Namespace) -> int:
     cfg = load_config()
     result = AvaliacaoResult(
@@ -423,6 +493,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_preflight = sub.add_parser("preflight", help="Gate G1 — conectividade Postgres")
     p_preflight.add_argument("--participante", required=True)
 
+    p_cleanup = sub.add_parser(
+        "cleanup",
+        help="Remove public.{participante}_empresas em db_empresas",
+    )
+    p_cleanup.add_argument("--participante", required=True)
+
+    sub.add_parser(
+        "cleanup-all",
+        help="Remove todas as public.*_empresas em db_empresas (libera disco)",
+    )
+
     p_registrar = sub.add_parser("registrar", help="Registra falha antecipada (G0)")
     p_registrar.add_argument("--participante", required=True)
     p_registrar.add_argument("--status", required=True)
@@ -447,6 +528,8 @@ def main() -> int:
 
     handlers = {
         "preflight": cmd_preflight,
+        "cleanup": cmd_cleanup,
+        "cleanup-all": cmd_cleanup_all,
         "registrar": cmd_registrar,
         "avaliar": cmd_avaliar,
     }

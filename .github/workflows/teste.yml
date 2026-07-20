@@ -86,6 +86,21 @@ jobs:
           chmod +x evaluator/evaluator.sh
           ./evaluator/evaluator.sh "$CHANGED_FILE"
 
+      # Sempre libera disco: DROP de todas public.*_empresas (mesmo se o avaliador
+      # sair cedo ou falhar antes do cleanup interno). Não toca db_ingestao/ranking.
+      - name: Limpar tabelas Postgres dos participantes
+        if: always()
+        continue-on-error: true
+        run: |
+          set -eo pipefail
+          # shellcheck disable=SC1091
+          source evaluator/scripts/lib/ensure-judge-venv.sh
+          resolve_judge_python
+          echo "================================================="
+          echo "--> cleanup-all: removendo public.*_empresas em db_empresas"
+          echo "================================================="
+          "$JUDGE_PYTHON" evaluator/judge/validar.py cleanup-all
+
       - name: Enviar relatório por e-mail
         if: always()
         continue-on-error: true

@@ -221,4 +221,4 @@ Acesse esse site para ver o ranking se quiser - https://lnk.ink/5R2NA
 
 É um encurtador de link pois eu fiz o site via free ngrok então pode ter um aviso disso.
 
-<img width="1865" height="646" alt="image" src="https://github.com/user-attachments/assets/74bd6fe6-9dce-46f9-9d05-673f3848903e" />
+<img width="1063" height="702" alt="image" src="https://github.com/user-attachments/assets/dde956bd-93d2-46dc-9792-a89606e9ec0e" />

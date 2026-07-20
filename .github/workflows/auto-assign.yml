@@ -1,0 +1,31 @@
+name: Auto Assign
+
+on:
+  # pull_request_target: funciona também para PRs vindas de forks
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign and request review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          echo "Assigning @mpraes to PR #${PR}"
+          gh api --method POST "repos/${REPO}/issues/${PR}/assignees" \
+            -f "assignees[]=mpraes"
+
+          echo "Requesting review from @mpraes on PR #${PR}"
+          # Falha se o autor da PR for o próprio mpraes (GitHub não permite self-review)
+          gh api --method POST "repos/${REPO}/pulls/${PR}/requested_reviewers" \
+            -f "reviewers[]=mpraes" || echo "Review request skipped (self-review or already requested)"

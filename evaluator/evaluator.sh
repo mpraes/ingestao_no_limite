@@ -159,6 +159,14 @@ if ! run_judge preflight --participante "$PARTICIPANTE"; then
 fi
 log_ok "Preflight aprovado"
 
+# Libera resíduos de qualquer participante (runs anteriores sem DROP) antes da carga.
+log_info "Limpando tabelas Postgres residual (public.*_empresas)..."
+if ! run_judge cleanup-all; then
+    juiz_registrar "$PARTICIPANTE" "ERRO_PREFLIGHT_PG" "$REPO_URL"
+    exit 1
+fi
+log_ok "Tabelas *_empresas ausentes/removidas — carga parte do zero"
+
 # ------------------------------------------------------------------------------
 # Clone + Dockerfile (Gate G0)
 # ------------------------------------------------------------------------------
@@ -302,6 +310,13 @@ set +e
 run_judge "${JUIZ_ARGS[@]}"
 JUIZ_EXIT=$?
 set -e
+
+# Libera disco: nenhuma carga *_empresas precisa ficar após o ranking.
+# cleanup-all também remove resíduos de runs anteriores que falharam no DROP.
+log_info "Removendo todas as tabelas public.*_empresas (libera disco)..."
+if ! run_judge cleanup-all; then
+    log_warn "Falha no cleanup-all — verifique espaço em disco no Postgres"
+fi
 
 echo -e "\n================================================="
 if [[ $JUIZ_EXIT -eq 0 ]]; then
