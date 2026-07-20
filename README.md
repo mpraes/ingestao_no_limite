@@ -1,4 +1,6 @@
-# ⚡ Ingestão no Limite: Um desafio para os engenheiros de dados "engenhocar" seus pipelines
+# Ingestão no Limite: Um desafio para os engenheiros de dados "engenhocar" seus pipelines
+
+<img width="1215" height="833" alt="image" src="https://github.com/user-attachments/assets/b904ce8a-c49c-4317-b207-cb123560dbe0" />
 
 Seja bem-vindo ao **Ingestão no Limite**, o desafio de Engenharia de Dados focado em **eficiência extrema, código performático e FinOps**.
 
@@ -220,6 +222,4 @@ Detalhes, alternativas sugeridas e orientações para organizadores estão em [S
 Acesse esse site para ver o ranking se quiser - https://lnk.ink/5R2NA
 
 É um encurtador de link pois eu fiz o site via free ngrok então pode ter um aviso disso.
-
-<img width="1052" height="852" alt="image" src="https://github.com/user-attachments/assets/f164e040-a7ed-4087-b25a-cdcfb6b0dcb8" />
 
