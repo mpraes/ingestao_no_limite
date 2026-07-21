@@ -222,5 +222,3 @@ Detalhes, alternativas sugeridas e orientações para organizadores estão em [S
 Acesse esse site para ver o ranking se quiser - https://lnk.ink/5R2NA
 
 É um encurtador de link pois eu fiz o site via free ngrok então pode ter um aviso disso.
-
-a
